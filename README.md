@@ -144,7 +144,7 @@ cached.stats();
 
 ## Demo відео
 
-> 📹 [Посилання на відео-демонстрацію](#)
+> https://github.com/imenshov-ctrl/js-closures-part2-variant1/blob/main/Memoization%20Library%20%E2%80%94%20Demo%20-%20Google%20Chrome%202026-04-28%2020-01-08.mp4
 
 ---
 
