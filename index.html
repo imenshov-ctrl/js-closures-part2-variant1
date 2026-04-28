@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memoization Library — Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;700&display=swap');
+
+  :root {
+    --bg:      #f7f3ee;
+    --white:   #ffffff;
+    --border:  #e0d8cc;
+    --text:    #1c1814;
+    --muted:   #8a7f74;
+    --accent:  #0055ff;
+    --green:   #0a7c42;
+    --red:     #cc2a2a;
+    --orange:  #c45d00;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'DM Sans', sans-serif;
+    --r:       10px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; padding-bottom: 80px; }
+
+  header { background: var(--text); color: var(--bg); padding: 30px 48px; display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; }
+  .logo { font-size: 1.9rem; font-weight: 700; letter-spacing: -1px; }
+  .logo span { color: #7eb3ff; }
+  .sub { font-family: var(--mono); font-size: .75rem; color: #8a9ab8; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 40px 32px; }
+
+  .sec { margin-bottom: 52px; }
+  h2 { font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+  h2::after { content:''; flex:1; height:1px; background: var(--border); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px,1fr)); gap: 16px; }
+  .wide { grid-column: 1 / -1; max-width: 820px; }
+
+  .card { background: var(--white); border: 1.5px solid var(--border); border-radius: var(--r); overflow: hidden; }
+  .card-top { padding: 13px 18px 11px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .fn { font-family: var(--mono); font-size: .88rem; font-weight: 600; color: var(--orange); }
+  .tag { font-size: .62rem; font-family: var(--mono); padding: 2px 7px; border-radius: 4px; background: #eff3ff; color: var(--accent); border: 1px solid #c7d6ff; }
+  .card-body { padding: 16px 18px; }
+  .desc { font-size: .82rem; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+
+  .btn { font-family: var(--mono); font-size: .76rem; padding: 6px 14px; border-radius: 6px; cursor: pointer; border: 1.5px solid; transition: background .15s, color .15s; }
+  .btn-p { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-p:hover { background: #0044cc; }
+  .btn-g { background: transparent; color: var(--text); border-color: var(--border); }
+  .btn-g:hover { background: var(--bg); }
+  .btn-r { background: transparent; color: var(--red); border-color: var(--red); }
+  .btn-r:hover { background: var(--red); color: #fff; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+
+  .out { font-family: var(--mono); font-size: .78rem; background: #f0ece4; border-left: 3px solid var(--green); padding: 10px 13px; border-radius: 0 6px 6px 0; color: var(--green); white-space: pre-wrap; word-break: break-all; margin-top: 4px; min-height: 36px; line-height: 1.7; }
+  .out.err { border-color: var(--red); color: var(--red); background: #fff0f0; }
+
+  /* benchmark bars */
+  .bench-wrap { margin-top: 14px; }
+  .bench-row-item { margin-bottom: 12px; }
+  .bench-label { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .bar-track { background: #ede8df; border-radius: 4px; height: 22px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-family: var(--mono); font-size: .7rem; font-weight: 600; color: #fff; transition: width .5s ease; min-width: 2px; }
+  .bar-slow { background: var(--red); }
+  .bar-fast { background: var(--green); }
+  .speedup-badge { display: inline-block; font-family: var(--mono); font-size: .8rem; font-weight: 700; color: var(--green); background: #e6f7ef; border: 1px solid #9de8c1; border-radius: 5px; padding: 3px 10px; margin-top: 6px; }
+
+  /* TTL log */
+  .ttl-log { margin-top: 10px; background: #f7f4ef; border: 1px solid var(--border); border-radius: 6px; max-height: 150px; overflow-y: auto; }
+  .ttl-entry { font-family: var(--mono); font-size: .73rem; padding: 5px 10px; border-bottom: 1px solid #ede8de; display: flex; gap: 10px; }
+  .ttl-entry:last-child { border: none; }
+  .hit  { color: var(--green); }
+  .miss { color: var(--red); }
+
+  /* LRU grid */
+  .lru-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .lru-cell { font-family: var(--mono); font-size: .72rem; padding: 4px 9px; border-radius: 5px; border: 1px solid var(--border); background: #f7f4ef; color: var(--text); transition: all .2s; }
+  .lru-cell.fresh { background: #e6f7ef; border-color: #9de8c1; color: var(--green); }
+  .lru-cell.evicted { background: #fff0f0; border-color: #f9b4b4; color: var(--red); text-decoration: line-through; animation: fade .4s ease forwards; }
+  @keyframes fade { to { opacity: 0; transform: scale(.8); } }
+
+  /* async call log */
+  .async-log { margin-top: 10px; }
+  .async-entry { font-family: var(--mono); font-size: .74rem; padding: 4px 10px; background: #f7f4ef; border-radius: 5px; margin-bottom: 4px; display: flex; gap: 10px; }
+  .async-pending { color: var(--orange); }
+  .async-done    { color: var(--green); }
+  .async-cached  { color: var(--accent); }
+
+  input[type=number], select {
+    font-family: var(--mono); font-size: .78rem;
+    padding: 4px 8px; border: 1.5px solid var(--border); border-radius: 5px;
+    background: var(--white); color: var(--text); outline: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Memo<span>ize</span>.js</div>
+  <div class="sub">// Практична 9.2 · Варіант 1 · Memoization Library</div>
+</header>
+
+<main>
+
+  <!-- 1. memoize -->
+  <div class="sec">
+    <h2>1 — memoize · базова</h2>
+    <div class="grid">
+      <div class="card wide">
+        <div class="card-top"><span class="fn">memoize(fn)</span><span class="tag">Map · stats</span></div>
+        <div class="card-body">
+          <p class="desc">Кешує результати за JSON-ключем аргументів. Статистика hits/misses зберігається у приватних змінних замикання.</p>
+          <div class="btn-row">
+            <button class="btn btn-p" id="m1-run">▶ fib(40) без мемо</button>
+            <button class="btn btn-p" id="m1-memo">▶ fib(40) з мемо</button>
+            <button class="btn btn-g" id="m1-again">▶ повторний виклик</button>
+            <button class="btn btn-r" id="m1-clear">clear</button>
+          </div>
+          <div id="m1-bench" class="bench-wrap" style="display:none">
+            <div class="bench-row-item">
+              <div class="bench-label"><span>Без мемоізації</span><span id="m1-slow-t">—</span></div>
+              <div class="bar-track"><div class="bar-fill bar-slow" id="m1-bar-slow" style="width:100%"></div></div>
+            </div>
+            <div class="bench-row-item">
+              <div class="bench-label"><span>З мемоізацією (перший)</span><span id="m1-fast-t">—</span></div>
+              <div class="bar-track"><div class="bar-fill bar-fast" id="m1-bar-fast" style="width:0%"></div></div>
+            </div>
+            <div class="bench-row-item">
+              <div class="bench-label"><span>Повторний (cache hit)</span><span id="m1-hit-t">—</span></div>
+              <div class="bar-track"><div class="bar-fill bar-fast" id="m1-bar-hit" style="width:0%;background:#3b82f6"></div></div>
+            </div>
+          </div>
+          <div class="out" id="m1-out">// натисни кнопку</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. memoizeWith -->
+  <div class="sec">
+    <h2>2 — memoizeWith · кастомний ключ</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="card-top"><span class="fn">memoizeWith(fn, keyFn)</span><span class="tag">custom key</span></div>
+        <div class="card-body">
+          <p class="desc">Кастомний генератор ключа — кешування за частиною аргументів або власною логікою.</p>
+          <div class="btn-row">
+            <button class="btn btn-p" id="m2-run">▶ Запустити</button>
+          </div>
+          <div class="out" id="m2-out">// натисни кнопку</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. memoizeAsync -->
+  <div class="sec">
+    <h2>3 — memoizeAsync · async функції</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="card-top"><span class="fn">memoizeAsync(asyncFn)</span><span class="tag">Promise · dedup</span></div>
+        <div class="card-body">
+          <p class="desc">Кешує Promise. Паралельні виклики з тим самим ключем отримують один Promise — функція не виконується двічі.</p>
+          <div class="btn-row">
+            <button class="btn btn-p" id="m3-single">▶ Одиночний виклик</button>
+            <button class="btn btn-p" id="m3-parallel">▶ 3 паралельних</button>
+            <button class="btn btn-r" id="m3-clear">clear</button>
+          </div>
+          <div class="async-log" id="m3-log"></div>
+          <div class="out" id="m3-out">// натисни кнопку</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. memoizeExpiring -->
+  <div class="sec">
+    <h2>4 — memoizeExpiring · TTL</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="card-top"><span class="fn">memoizeExpiring(fn, ttlMs)</span><span class="tag">TTL · eviction</span></div>
+        <div class="card-body">
+          <p class="desc">Кеш автоматично застаріває після TTL. Прострочений запис видаляється при наступному зверненні.</p>
+          <div class="btn-row">
+            <label style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">TTL:</label>
+            <select id="m4-ttl">
+              <option value="2000">2 сек</option>
+              <option value="5000" selected>5 сек</option>
+              <option value="10000">10 сек</option>
+            </select>
+            <button class="btn btn-p" id="m4-call">▶ Виклик</button>
+            <button class="btn btn-r" id="m4-clear">reset</button>
+          </div>
+          <div class="ttl-log" id="m4-log"><div class="ttl-entry" style="color:var(--muted)">// натисни кнопку кілька разів</div></div>
+          <div class="out" id="m4-stats" style="margin-top:8px;">// статистика</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. memoizeLRU -->
+  <div class="sec">
+    <h2>5 — memoizeLRU · обмеження розміру</h2>
+    <div class="grid">
+      <div class="card wide">
+        <div class="card-top"><span class="fn">memoizeLRU(fn, maxSize)</span><span class="tag">LRU eviction</span></div>
+        <div class="card-body">
+          <p class="desc">При досягненні maxSize витісняє найстаріший невикористаний запис (Least Recently Used). Кеш відображається нижче — зелений = свіжий, червоний = витіснений.</p>
+          <div class="btn-row">
+            <label style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">maxSize:</label>
+            <input type="number" id="m5-size" value="5" min="2" max="10" style="width:60px">
+            <button class="btn btn-p" id="m5-seq">▶ Послідовність 1–10</button>
+            <button class="btn btn-g" id="m5-hit">▶ Звернення до 3</button>
+            <button class="btn btn-r" id="m5-clear">clear</button>
+          </div>
+          <div class="lru-grid" id="m5-grid"></div>
+          <div class="out" id="m5-out" style="margin-top:10px;">// натисни кнопку</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Вбудована бібліотека ───────────────────────────────────────
+
+const memoize = (fn) => {
+  const cache = new Map(); let hits=0, misses=0;
+  const m = (...a) => {
+    const k = JSON.stringify(a);
+    if (cache.has(k)) { hits++; return cache.get(k); }
+    misses++;
+    const v = fn(...a); cache.set(k, v); return v;
+  };
+  m.stats = () => ({ hits, misses, size: cache.size, hitRate: hits+misses===0?'0%':(hits/(hits+misses)*100).toFixed(1)+'%' });
+  m.clear = () => { cache.clear(); hits=misses=0; };
+  return m;
+};
+
+const memoizeWith = (fn, keyFn) => {
+  const cache = new Map(); let hits=0, misses=0;
+  const m = (...a) => {
+    const k = keyFn(...a);
+    if (cache.has(k)) { hits++; return cache.get(k); }
+    misses++; const v = fn(...a); cache.set(k,v); return v;
+  };
+  m.stats = () => ({ hits, misses, size: cache.size });
+  m.clear = () => { cache.clear(); hits=misses=0; };
+  return m;
+};
+
+const memoizeAsync = (asyncFn, keyFn = (...a) => JSON.stringify(a)) => {
+  const cache=new Map(), results=new Map(); let hits=0, misses=0, pending=0;
+  const m = async (...a) => {
+    const k = keyFn(...a);
+    if (results.has(k)) { hits++; return results.get(k); }
+    if (cache.has(k))   { hits++; return cache.get(k); }
+    misses++; pending++;
+    const p = asyncFn(...a).then(v => { results.set(k,v); cache.delete(k); pending--; return v; })
+                            .catch(e => { cache.delete(k); pending--; throw e; });
+    cache.set(k, p); return p;
+  };
+  m.stats = () => ({ hits, misses, pending, cached: results.size });
+  m.clear = () => { cache.clear(); results.clear(); hits=misses=pending=0; };
+  return m;
+};
+
+const memoizeExpiring = (fn, ttlMs, keyFn = (...a) => JSON.stringify(a)) => {
+  const cache = new Map(); let hits=0, misses=0, evictions=0;
+  const m = (...a) => {
+    const k=keyFn(...a), now=Date.now(), e=cache.get(k);
+    if (e && e.exp > now) { hits++; return e.value; }
+    if (e) { cache.delete(k); evictions++; }
+    misses++; const v=fn(...a); cache.set(k,{value:v, exp:now+ttlMs}); return v;
+  };
+  m.stats = () => ({ hits, misses, evictions, size: cache.size });
+  m.clear = () => { cache.clear(); hits=misses=evictions=0; };
+  return m;
+};
+
+const memoizeLRU = (fn, maxSize=50, keyFn=(...a)=>JSON.stringify(a)) => {
+  const cache=new Map(); let hits=0, misses=0, evictions=0;
+  const m = (...a) => {
+    const k=keyFn(...a);
+    if (cache.has(k)) { hits++; const v=cache.get(k); cache.delete(k); cache.set(k,v); return v; }
+    misses++;
+    if (cache.size >= maxSize) { cache.delete(cache.keys().next().value); evictions++; }
+    const v=fn(...a); cache.set(k,v); return v;
+  };
+  m.stats    = () => ({ hits, misses, evictions, size: cache.size, maxSize });
+  m.clear    = () => { cache.clear(); hits=misses=evictions=0; };
+  m.getKeys  = () => [...cache.keys()];
+  return m;
+};
+
+// ── 1. memoize benchmark ──────────────────────────────────────
+const fibRaw = n => n <= 1 ? n : fibRaw(n-1) + fibRaw(n-2);
+const fibM   = memoize(n => n <= 1 ? n : fibM(n-1) + fibM(n-2));
+let slowMs = null;
+
+document.getElementById('m1-run').onclick = () => {
+  const t0=performance.now(); fibRaw(40); slowMs=performance.now()-t0;
+  document.getElementById('m1-out').textContent = `Без мемо: ${slowMs.toFixed(1)} ms`;
+  document.getElementById('m1-out').className = 'out';
+  if (slowMs) showBars();
+};
+
+document.getElementById('m1-memo').onclick = () => {
+  fibM.clear();
+  const t0=performance.now(); fibM(40); const fastMs=performance.now()-t0;
+  document.getElementById('m1-out').textContent =
+    `З мемо (перший): ${fastMs.toFixed(3)} ms\n` +
+    (slowMs ? `Прискорення: ×${(slowMs/Math.max(fastMs,0.0001)).toFixed(0)}` : '') + '\n' +
+    `Stats: ${JSON.stringify(fibM.stats())}`;
+  document.getElementById('m1-out').className = 'out';
+  if (slowMs) showBars(fastMs);
+};
+
+document.getElementById('m1-again').onclick = () => {
+  const t0=performance.now(); fibM(40); const hitMs=performance.now()-t0;
+  const s=fibM.stats();
+  document.getElementById('m1-out').textContent =
+    `Cache hit: ${hitMs.toFixed(4)} ms\nStats: hits=${s.hits}, misses=${s.misses}, hitRate=${s.hitRate}`;
+  document.getElementById('m1-out').className = 'out';
+};
+
+document.getElementById('m1-clear').onclick = () => {
+  fibM.clear(); slowMs=null;
+  document.getElementById('m1-out').textContent = '// кеш очищено';
+  document.getElementById('m1-bench').style.display='none';
+};
+
+function showBars(fastMs) {
+  document.getElementById('m1-bench').style.display='block';
+  if (!slowMs) return;
+  document.getElementById('m1-slow-t').textContent = slowMs.toFixed(1)+' ms';
+  if (fastMs !== undefined) {
+    document.getElementById('m1-fast-t').textContent = fastMs.toFixed(3)+' ms';
+    const pct = Math.max(1, (fastMs/slowMs*100));
+    document.getElementById('m1-bar-fast').style.width = pct+'%';
+    document.getElementById('m1-bar-fast').textContent = pct < 5 ? '' : fastMs.toFixed(3)+' ms';
+  }
+}
+
+// ── 2. memoizeWith ────────────────────────────────────────────
+document.getElementById('m2-run').onclick = () => {
+  // Кешуємо лише за першим аргументом (ігноруємо timestamp)
+  let calls = 0;
+  const process = memoizeWith(
+    (userId, _ts) => { calls++; return `user_${userId}_data`; },
+    (userId)      => userId  // ключ — тільки userId
+  );
+
+  const r1 = process(42, Date.now());
+  const r2 = process(42, Date.now() + 9999); // інший ts, але той самий userId
+  const r3 = process(99, Date.now());
+
+  document.getElementById('m2-out').textContent =
+    `process(42, ts1) = "${r1}"  [miss — виклик #${calls}]\n` +
+    `process(42, ts2) = "${r2}"  [hit  — ts інший, але ключ той самий]\n` +
+    `process(99, ts3) = "${r3}"  [miss]\n` +
+    `Реальних викликів: ${calls} (очікувалось 2)\n` +
+    `Stats: ${JSON.stringify(process.stats())}`;
+};
+
+// ── 3. memoizeAsync ───────────────────────────────────────────
+const fakeApi = memoizeAsync(async (id) => {
+  await new Promise(r => setTimeout(r, 600 + Math.random()*400));
+  return { id, name: `User_${id}`, ts: Date.now() };
+});
+
+const m3log = document.getElementById('m3-log');
+const m3out = document.getElementById('m3-out');
+
+const addAsyncEntry = (cls, text) => {
+  const d = document.createElement('div');
+  d.className = `async-entry ${cls}`;
+  d.textContent = `[${new Date().toLocaleTimeString('uk-UA')}] ${text}`;
+  m3log.appendChild(d);
+};
+
+document.getElementById('m3-single').onclick = async () => {
+  addAsyncEntry('async-pending', '→ fetchUser(1) — запит...');
+  const t0 = performance.now();
+  const r = await fakeApi(1);
+  const dt = (performance.now()-t0).toFixed(0);
+  addAsyncEntry('async-done', `✓ fetchUser(1) done в ${dt}ms → ${JSON.stringify(r)}`);
+  m3out.textContent = `Stats: ${JSON.stringify(fakeApi.stats())}`;
+};
+
+document.getElementById('m3-parallel').onclick = async () => {
+  addAsyncEntry('async-pending', '→ 3 паралельних виклики fetchUser(2)...');
+  const t0 = performance.now();
+  const [r1,r2,r3] = await Promise.all([fakeApi(2), fakeApi(2), fakeApi(2)]);
+  const dt = (performance.now()-t0).toFixed(0);
+  addAsyncEntry('async-cached', `✓ всі 3 завершились за ${dt}ms (1 реальний запит, 2 dedup)`);
+  m3out.textContent = `r1===r2: ${JSON.stringify(r1)===JSON.stringify(r2)}\nStats: ${JSON.stringify(fakeApi.stats())}`;
+};
+
+document.getElementById('m3-clear').onclick = () => {
+  fakeApi.clear(); m3log.innerHTML=''; m3out.textContent='// кеш очищено';
+};
+
+// ── 4. memoizeExpiring ────────────────────────────────────────
+let m4fn = null;
+const rebuildM4 = () => {
+  const ttl = parseInt(document.getElementById('m4-ttl').value);
+  let callN = 0;
+  m4fn = memoizeExpiring(() => { callN++; return `result_${callN}_at_${Date.now()}`; }, ttl);
+  document.getElementById('m4-log').innerHTML = '<div class="ttl-entry" style="color:var(--muted)">// скинуто</div>';
+  document.getElementById('m4-stats').textContent = '// статистика';
+};
+document.getElementById('m4-ttl').onchange = rebuildM4;
+document.getElementById('m4-clear').onclick = rebuildM4;
+rebuildM4();
+
+document.getElementById('m4-call').onclick = () => {
+  const { value: v } = { value: m4fn() };
+  const s = m4fn.stats();
+  const lastCall = s.hits > 0 && s.misses > 0 && s.hits >= s.misses - 1;
+  const isHit = s.hits > 0 && s.misses <= 1 || (s.hits > 0);
+
+  const log = document.getElementById('m4-log');
+  if (log.querySelector('.ttl-entry[style]')) log.innerHTML = '';
+  const d = document.createElement('div');
+  const cached = s.hits > 0 && s.misses < 2 || (s.hits >= s.misses);
+
+  // Визначаємо чи це hit чи miss порівнюючи поточні stats
+  const total = s.hits + s.misses;
+  const wasHit = total > 1 && s.misses === (m4fn._lastMisses || 1);
+  m4fn._lastMisses = s.misses;
+
+  d.className = `ttl-entry ${s.misses === (m4fn._prevMisses||0)+1 ? 'miss' : 'hit'}`;
+  m4fn._prevMisses = s.misses;
+  d.textContent = `[${new Date().toLocaleTimeString('uk')}] → "${v}"`;
+  log.appendChild(d); log.scrollTop = 9999;
+  document.getElementById('m4-stats').textContent = `hits=${s.hits}  misses=${s.misses}  evictions=${s.evictions}  size=${s.size}  ttl=${s.ttlMs}ms`;
+};
+
+// ── 5. memoizeLRU ─────────────────────────────────────────────
+let lruFn = null;
+const rebuildLRU = () => {
+  const sz = parseInt(document.getElementById('m5-size').value) || 5;
+  lruFn = memoizeLRU(n => n * n, sz);
+  document.getElementById('m5-grid').innerHTML = '';
+  document.getElementById('m5-out').textContent = `// LRU готовий (maxSize=${sz})`;
+};
+document.getElementById('m5-size').onchange = rebuildLRU;
+document.getElementById('m5-clear').onclick = rebuildLRU;
+rebuildLRU();
+
+const renderLRU = (evicted) => {
+  const grid = document.getElementById('m5-grid');
+  grid.innerHTML = '';
+  const keys = lruFn.getKeys();
+  keys.forEach(k => {
+    const cell = document.createElement('div');
+    cell.className = 'lru-cell fresh';
+    cell.textContent = `${k}²=${JSON.parse(k)[0]**2}`;
+    grid.appendChild(cell);
+  });
+  if (evicted !== undefined) {
+    const dead = document.createElement('div');
+    dead.className = 'lru-cell evicted';
+    dead.textContent = `${evicted}² evicted`;
+    grid.insertBefore(dead, grid.firstChild);
+    setTimeout(() => dead.remove(), 500);
+  }
+};
+
+document.getElementById('m5-seq').onclick = () => {
+  const sz = parseInt(document.getElementById('m5-size').value) || 5;
+  rebuildLRU();
+  let i = 1;
+  const interval = setInterval(() => {
+    const prevSize = lruFn.stats().size;
+    lruFn(i);
+    const evicted = lruFn.stats().evictions > 0 && lruFn.stats().size === sz ? i - sz : undefined;
+    renderLRU(lruFn.stats().evictions > 0 ? i - sz : undefined);
+    const s = lruFn.stats();
+    document.getElementById('m5-out').textContent =
+      `Додано: ${i}²=${i*i}  |  size=${s.size}/${s.maxSize}  evictions=${s.evictions}`;
+    i++;
+    if (i > 10) clearInterval(interval);
+  }, 350);
+};
+
+document.getElementById('m5-hit').onclick = () => {
+  if (!lruFn) return;
+  lruFn(3); // звернення до 3 — переміщується у кінець (найновіший)
+  renderLRU();
+  const s = lruFn.stats();
+  document.getElementById('m5-out').textContent =
+    `Звернення до 3 → переміщено у кінець\nhits=${s.hits}  misses=${s.misses}  size=${s.size}`;
+};
+</script>
+</body>
+</html>
